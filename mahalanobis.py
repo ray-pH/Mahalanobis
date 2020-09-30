@@ -174,10 +174,16 @@ def main():
 	# alpha = 0.25
 	coord_fontsize = 7
 	show_coords = True
+	coord_format = "({:.3f}, {:.3f})"
+
 	show_line = True
+	auto_scale = True
 	highlight_outlier = True
 	ax.set_xlim([11, 17])
 	ax.set_ylim([8.5, 14.5])
+
+	minmaj_markersize = 10
+	data_markersize = 30
 
 	#colors
 	outlier_color = 'green'
@@ -194,13 +200,13 @@ def main():
 	if show_line:
 		ax.plot(minmaj[0][1:3],minmaj[1][1:3], linestyle='dashed', color=line_color, alpha=0.3, zorder=0)
 		ax.plot(minmaj[0][3:5],minmaj[1][3:5], linestyle='dashed', color=line_color, alpha=0.3, zorder=0)
-	ax.scatter(datax, datay, color=data_color)
-	ax.scatter(minmaj[0],minmaj[1], color=minmaj_color)
+	ax.scatter(datax, datay, color=data_color, s=data_markersize)
+	ax.scatter(minmaj[0],minmaj[1], color=minmaj_color, s=minmaj_markersize)
 
 	if show_coords:
 		for i in range(len(minmaj[0])):
 			xs,ys = minmaj
-			text = "({:.2f}, {:.2f})".format(float(xs[i]),float(ys[i]))
+			text = coord_format.format(float(xs[i]),float(ys[i]))
 			ax.text(xs[i],ys[i],text, fontsize=coord_fontsize)
 
 	if highlight_outlier:
@@ -215,6 +221,7 @@ def main():
 	scale = 1.1
 	figZoom = zp.zoom_factory(ax, base_scale = scale)
 	figPan = zp.pan_factory(ax)
+	if auto_scale : plt.axis('scaled')
 	plt.show()
 	
 if __name__ == '__main__':
