@@ -8,6 +8,87 @@ import matplotlib.transforms as transforms
 def getcol(mat, col):
 	return np.array([mat.transpose()[col]]).transpose()
 
+class ZoomPan:
+    def __init__(self):
+        self.press = None
+        self.cur_xlim = None
+        self.cur_ylim = None
+        self.x0 = None
+        self.y0 = None
+        self.x1 = None
+        self.y1 = None
+        self.xpress = None
+        self.ypress = None
+
+
+    def zoom_factory(self, ax, base_scale = 2.):
+        def zoom(event):
+            cur_xlim = ax.get_xlim()
+            cur_ylim = ax.get_ylim()
+
+            xdata = event.xdata # get event x location
+            ydata = event.ydata # get event y location
+
+            if event.button == 'down':
+                # deal with zoom in
+                scale_factor = 1 / base_scale
+            elif event.button == 'up':
+                # deal with zoom out
+                scale_factor = base_scale
+            else:
+                # deal with something that should never happen
+                scale_factor = 1
+                print(event.button)
+
+            new_width = (cur_xlim[1] - cur_xlim[0]) * scale_factor
+            new_height = (cur_ylim[1] - cur_ylim[0]) * scale_factor
+
+            relx = (cur_xlim[1] - xdata)/(cur_xlim[1] - cur_xlim[0])
+            rely = (cur_ylim[1] - ydata)/(cur_ylim[1] - cur_ylim[0])
+
+            ax.set_xlim([xdata - new_width * (1-relx), xdata + new_width * (relx)])
+            ax.set_ylim([ydata - new_height * (1-rely), ydata + new_height * (rely)])
+            ax.figure.canvas.draw()
+
+        fig = ax.get_figure() # get the figure of interest
+        fig.canvas.mpl_connect('scroll_event', zoom)
+
+        return zoom
+
+    def pan_factory(self, ax):
+        def onPress(event):
+            if event.inaxes != ax: return
+            self.cur_xlim = ax.get_xlim()
+            self.cur_ylim = ax.get_ylim()
+            self.press = self.x0, self.y0, event.xdata, event.ydata
+            self.x0, self.y0, self.xpress, self.ypress = self.press
+
+        def onRelease(event):
+            self.press = None
+            ax.figure.canvas.draw()
+
+        def onMotion(event):
+            if self.press is None: return
+            if event.inaxes != ax: return
+            dx = event.xdata - self.xpress
+            dy = event.ydata - self.ypress
+            self.cur_xlim -= dx
+            self.cur_ylim -= dy
+            ax.set_xlim(self.cur_xlim)
+            ax.set_ylim(self.cur_ylim)
+
+            ax.figure.canvas.draw()
+
+        fig = ax.get_figure() # get the figure of interest
+
+        # attach the call back
+        fig.canvas.mpl_connect('button_press_event',onPress)
+        fig.canvas.mpl_connect('button_release_event',onRelease)
+        fig.canvas.mpl_connect('motion_notify_event',onMotion)
+
+        #return the function
+        return onMotion
+
 def getminormajor(x,y,chi):
 	cov = np.cov(x, y)
 	mean_x = np.mean(x)
@@ -38,6 +119,7 @@ def getoutlier(x,y,chi):
 			out_x.append(x[i])
 			out_y.append(y[i])
 	return [out_x,out_y]
+
 
 
 def confidence_ellipse(x, y, ax, chi, facecolor='none', **kwargs):
@@ -84,15 +166,18 @@ def confidence_ellipse(x, y, ax, chi, facecolor='none', **kwargs):
 def main():
 	fig, ax = plt.subplots()
 
-	datax = [108.28, 152.36, 95.04, 65.45, 62.97, 263.99, 265.19, 285.06, 92.01, 165.68]
-	datay = [17.05, 16.59, 10.91, 14.14, 9.52, 25.33, 18.54, 15.73, 8.1, 11.13]
-	alpha = 0.25
-	coord_fontsize = 5
+	# datax = [108.28, 152.36, 95.04, 65.45, 62.97, 263.99, 265.19, 285.06, 92.01, 165.68]
+	# datay = [17.05, 16.59, 10.91, 14.14, 9.52, 25.33, 18.54, 15.73, 8.1, 11.13]
+	datax = [15.150,14.680,13.097,13.695,16.065,13.632,13.219,12.830,14.259,13.825,13.338,12.696,13.770,13.230]
+	datay = [11.221,11.723,12.280,12.252,10.343,12.273,11.560,11.971,10.546,10.857,11.848,11.557,11.499,12.342]
+	alpha = 0.1
+	# alpha = 0.25
+	coord_fontsize = 7
 	show_coords = True
 	show_line = True
 	highlight_outlier = True
-	ax.set_xlim([-120, 400])
-	ax.set_ylim([0, 30])
+	ax.set_xlim([11, 17])
+	ax.set_ylim([8.5, 14.5])
 
 	#colors
 	outlier_color = 'green'
@@ -107,8 +192,8 @@ def main():
 	minmaj = getminormajor(datax,datay,chi)
 
 	if show_line:
-		ax.plot(minmaj[0][1:3],minmaj[1][1:3], linestyle='dashed', color=line_color, alpha=0.3)
-		ax.plot(minmaj[0][3:5],minmaj[1][3:5], linestyle='dashed', color=line_color, alpha=0.3)
+		ax.plot(minmaj[0][1:3],minmaj[1][1:3], linestyle='dashed', color=line_color, alpha=0.3, zorder=0)
+		ax.plot(minmaj[0][3:5],minmaj[1][3:5], linestyle='dashed', color=line_color, alpha=0.3, zorder=0)
 	ax.scatter(datax, datay, color=data_color)
 	ax.scatter(minmaj[0],minmaj[1], color=minmaj_color)
 
@@ -126,6 +211,10 @@ def main():
 
 	confidence_ellipse(datax, datay, ax, chi, edgecolor=ellipse_color)
 
+	zp = ZoomPan()
+	scale = 1.1
+	figZoom = zp.zoom_factory(ax, base_scale = scale)
+	figPan = zp.pan_factory(ax)
 	plt.show()
 	
 if __name__ == '__main__':
