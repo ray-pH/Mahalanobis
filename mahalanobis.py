@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.stats import chi2
+from scipy.spatial import distance
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
 import matplotlib.transforms as transforms
@@ -25,6 +26,18 @@ def getminormajor(x,y,chi):
 	they = [mu[1], min1[1], min2[1], maj1[1], maj2[1]]
 	return [thex,they]
 	
+def getoutlier(x,y,chi):
+	out_x,out_y = [],[]
+	cov = np.cov(x,y)
+	icov = np.linalg.inv(cov)
+	mu = [np.mean(x), np.mean(y)]
+	for i in range(len(x)):
+		vec = [x[i],y[i]]
+		dist = distance.mahalanobis(vec,mu,icov)
+		if(dist**2 > chi): 
+			out_x.append(x[i])
+			out_y.append(y[i])
+	return [out_x,out_y]
 
 
 def confidence_ellipse(x, y, ax, chi, facecolor='none', **kwargs):
@@ -73,22 +86,46 @@ def main():
 
 	datax = [108.28, 152.36, 95.04, 65.45, 62.97, 263.99, 265.19, 285.06, 92.01, 165.68]
 	datay = [17.05, 16.59, 10.91, 14.14, 9.52, 25.33, 18.54, 15.73, 8.1, 11.13]
-	alpha = 0.05
-	showcoords = True
+	alpha = 0.25
+	coord_fontsize = 5
+	show_coords = True
+	show_line = True
+	highlight_outlier = True
 	ax.set_xlim([-120, 400])
 	ax.set_ylim([0, 30])
 
-	ax.scatter(datax, datay)
+	#colors
+	outlier_color = 'green'
+	ellipse_color = 'red'
+	data_color = '#4293f5'
+	minmaj_color = 'orange'
+	line_color = 'blue'
+
+	print(np.cov(datax,datay))
+
 	chi = chi2.ppf(1-alpha,2)
 	minmaj = getminormajor(datax,datay,chi)
-	ax.scatter(minmaj[0],minmaj[1])
 
-	if showcoords:
+	if show_line:
+		ax.plot(minmaj[0][1:3],minmaj[1][1:3], linestyle='dashed', color=line_color, alpha=0.3)
+		ax.plot(minmaj[0][3:5],minmaj[1][3:5], linestyle='dashed', color=line_color, alpha=0.3)
+	ax.scatter(datax, datay, color=data_color)
+	ax.scatter(minmaj[0],minmaj[1], color=minmaj_color)
+
+	if show_coords:
 		for i in range(len(minmaj[0])):
 			xs,ys = minmaj
 			text = "({:.2f}, {:.2f})".format(float(xs[i]),float(ys[i]))
-			ax.text(xs[i],ys[i],text)
-	confidence_ellipse(datax, datay, ax, chi, edgecolor='red')
+			ax.text(xs[i],ys[i],text, fontsize=coord_fontsize)
+
+	if highlight_outlier:
+		outs = getoutlier(datax,datay,chi)
+		ax.scatter(outs[0],outs[1], color=outlier_color)
+		print("jumlah outlier :",len(outs[0]))
+
+
+	confidence_ellipse(datax, datay, ax, chi, edgecolor=ellipse_color)
+
 	plt.show()
 	
 if __name__ == '__main__':
